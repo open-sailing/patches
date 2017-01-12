@@ -1,0 +1,65 @@
+From 9c2cb163551c593fc54c24266c95b61e3a1361fe Mon Sep 17 00:00:00 2001
+From: zhangxj <zhangxinjia@huawei.com>
+Date: Thu, 12 Jan 2017 11:28:04 +0000
+Subject: [PATCH] Support ES3000 & Change default boot console item.
+
+---
+ deploy/mkisoimg.sh | 7 +------
+ deploy/setup.sh    | 9 +--------
+ 2 files changed, 2 insertions(+), 14 deletions(-)
+
+diff --git a/deploy/mkisoimg.sh b/deploy/mkisoimg.sh
+index cfa806e..74df184 100755
+--- a/deploy/mkisoimg.sh
++++ b/deploy/mkisoimg.sh
+@@ -172,7 +172,7 @@ cat > grub.cfg << EOF
+ set timeout=5
+ 
+ # By default, boot the Linux
+-set default=${default_plat}_minilinux_vga
++set default=${default_plat}_minilinux_console
+ 
+ EOF
+ 
+@@ -182,11 +182,6 @@ for plat in ${platforms[*]}; do
+ 	platform=`echo $plat | tr "[:upper:]" "[:lower:]"`
+ 	cat >> grub.cfg << EOF
+ # Booting initrd for $plat (VGA)
+-menuentry "Install $plat estuary (VGA)" --id ${platform}_minilinux_vga {
+-	linux /$Image $vga_cmd_line
+-	initrd /$Initrd
+-}
+-
+ # Booting initrd for $plat (Console)
+ menuentry "Install $plat estuary (Console)" --id ${platform}_minilinux_console {
+ 	linux /$Image $console_cmd_line
+diff --git a/deploy/setup.sh b/deploy/setup.sh
+index 9dddd24..d521c4b 100755
+--- a/deploy/setup.sh
++++ b/deploy/setup.sh
+@@ -357,13 +357,6 @@ for ((index=0; index<distro_number; index++)); do
+ 	distro_name=${INSTALL_DISTRO[$index]}
+ 	
+ cat >> /boot/grub.cfg << EOF
+-# Booting from SATA/SAS with $distro_name rootfs (VGA)
+-menuentry "${PLATFORM} $distro_name (VGA)" --id ${platform}_${distro_name}_vga {
+-    set root=(hd0,gpt1)
+-    search --no-floppy --fs-uuid --set=root $boot_dev_uuid
+-    linux $linux_vga_arg
+-}
+-
+ # Booting from SATA/SAS with $distro_name rootfs (Console)
+ menuentry "${PLATFORM} $distro_name (Console)" --id ${platform}_${distro_name}_console {
+     set root=(hd0,gpt1)
+@@ -376,7 +369,7 @@ EOF
+ done
+ 
+ # Set the first distro to default
+-default_menuentry_id="${platform}_""${INSTALL_DISTRO[0]}""_vga"
++default_menuentry_id="${platform}_""${INSTALL_DISTRO[0]}""_console"
+ sed -i "s/\(set default=\)\(default_menuentry\)/\1$default_menuentry_id/g" /boot/grub.cfg
+ 
+ echo "Update grub.cfg done!"
+-- 
+1.9.1
+
