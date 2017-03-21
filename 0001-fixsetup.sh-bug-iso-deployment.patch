@@ -1,0 +1,102 @@
+From 8975865bbd78e4084c647e9dae7c0f50f084bea1 Mon Sep 17 00:00:00 2001
+From: James <zhangxinjia@huawei.com>
+Date: Tue, 21 Mar 2017 11:00:25 +0000
+Subject: [PATCH] fixsetup.sh bug iso deployment
+
+---
+ deploy/mkisoimg.sh |  8 +-------
+ deploy/setup.sh    | 14 ++++----------
+ 2 files changed, 5 insertions(+), 17 deletions(-)
+
+diff --git a/deploy/mkisoimg.sh b/deploy/mkisoimg.sh
+index aef3fff..d161031 100755
+--- a/deploy/mkisoimg.sh
++++ b/deploy/mkisoimg.sh
+@@ -195,20 +195,14 @@ cat > grub.cfg << EOF
+ set timeout=5
+ 
+ # By default, boot the Linux
+-set default=${default_plat}_minilinux_vga
++set default=${default_plat}_minilinux_console
+ 
+ EOF
+ 
+ for plat in ${platforms[*]}; do
+-    eval vga_cmd_line=\$${plat}_VGA_CMDLINE
+     eval console_cmd_line=\$${plat}_CMDLINE
+     platform=`echo $plat | tr "[:upper:]" "[:lower:]"`
+     cat >> grub.cfg << EOF
+-# Booting initrd for $plat (VGA)
+-menuentry "Install $plat estuary (VGA)" --id ${platform}_minilinux_vga {
+-    linux /$Image $vga_cmd_line
+-    initrd /$Initrd
+-}
+ 
+ # Booting initrd for $plat (Console)
+ menuentry "Install $plat estuary (Console)" --id ${platform}_minilinux_console {
+diff --git a/deploy/setup.sh b/deploy/setup.sh
+index 288177f..8414f52 100755
+--- a/deploy/setup.sh
++++ b/deploy/setup.sh
+@@ -161,7 +161,7 @@ else
+             echo "You have not select any distros, will install CentOS default"
+             INSTALL_DISTRO[${#INSTALL_DISTRO[@]}]="CentOS"
+             for ((i=0; i<${#all_distro[@]}; i++)); do
+-                if [ x"$all_distro[$i]" = x"CentOS" ]; then
++                if [ x"${all_distro[$i]}" = x"CentOS" ]; then
+                     DISTRO_CAPACITY[${#DISTRO_CAPACITY[@]}]=${all_capacity[$i]}
+                     break
+                 fi
+@@ -267,6 +267,7 @@ BOOT_DEV=
+ first_part=`lsblk ${TARGET_DISK} -ln -o NAME,TYPE | grep -m 1 part | awk '{print $1}'`
+ PART_PREFIX=`echo "/dev/$first_part" | sed 's/[0-9]*$//g' | sed "s,^${TARGET_DISK},,g"`
+ BOOT_DEV="${TARGET_DISK}${PART_PREFIX}1"
++(mdev -s)
+ (yes | mkfs.vfat $BOOT_DEV) >/dev/null 2>&1
+ 
+ echo "Create and format ${TARGET_DISK} part1 done."
+@@ -313,6 +314,7 @@ do
+     # Create and fromat partition for current distro.
+     echo "Creating and formatting ${TARGET_DISK}${PART_PREFIX}${part_index} for $distro_name."
+     (parted -s $TARGET_DISK "mkpart ROOT ext4 $start_address $end_address") >/dev/null 2>&1
++    (mdev -s)
+     (echo -e "t\n$part_index\n13\nw\n" | fdisk $TARGET_DISK) >/dev/null 2>&1
+     (yes | mkfs.ext4 ${TARGET_DISK}${PART_PREFIX}${part_index}) >/dev/null 2>&1
+     echo "Create and format ${TARGET_DISK}${part_index} for $distro_name."
+@@ -375,7 +377,6 @@ EOF
+ 
+ # create grub entry for each distro
+ platform=$(echo $PLATFORM | tr "[:upper:]" "[:lower:]")
+-eval vga_cmd_line=\$${PLATFORM}_VGA_CMDLINE
+ eval console_cmd_line=\$${PLATFORM}_CMDLINE
+ boot_dev_info=`blkid -s UUID $BOOT_DEV 2>/dev/null | grep -o "UUID=.*" | sed 's/\"//g'`
+ boot_dev_uuid=`expr "${boot_dev_info}" : '[^=]*=\(.*\)'`
+@@ -393,16 +394,9 @@ for ((index=0; index<distro_number; index++)); do
+     root_partuuid=`expr "${root_dev_info}" : '[^=]*=\(.*\)'`
+ 
+     linux_arg="/$Image root=$root_dev_info rootwait rw $console_cmd_line"
+-    linux_vga_arg="/$Image root=$root_dev_info rootwait rw $vga_cmd_line"
+     distro_name=${INSTALL_DISTRO[$index]}
+ 
+ cat >> /boot/grub.cfg << EOF
+-# Booting from SATA/SAS with $distro_name rootfs (VGA)
+-menuentry "${PLATFORM} $distro_name (VGA)" --id ${platform}_${distro_name}_vga {
+-    set root=(hd0,gpt1)
+-    search --no-floppy --fs-uuid --set=root $boot_dev_uuid
+-    linux $linux_vga_arg
+-}
+ 
+ # Booting from SATA/SAS with $distro_name rootfs (Console)
+ menuentry "${PLATFORM} $distro_name (Console)" --id ${platform}_${distro_name}_console {
+@@ -416,7 +410,7 @@ EOF
+ done
+ 
+ # Set the first distro to default
+-default_menuentry_id="${platform}_""${INSTALL_DISTRO[0]}""_vga"
++default_menuentry_id="${platform}_""${INSTALL_DISTRO[0]}""_console"
+ sed -i "s/\(set default=\)\(default_menuentry\)/\1$default_menuentry_id/g" /boot/grub.cfg
+ 
+ echo "Update grub.cfg done!"
+-- 
+1.9.1
+
